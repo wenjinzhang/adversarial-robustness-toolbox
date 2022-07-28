@@ -51,6 +51,7 @@ class TargetedUniversalPerturbation(EvasionAttack):
     attacks_dict = {
         "fgsm": "art.attacks.evasion.fast_gradient.FastGradientMethod",
         "simba": "art.attacks.evasion.simba.SimBA",
+        "deepfool": "art.attacks.evasion.deepfool.DeepFool",
     }
     attack_params = EvasionAttack.attack_params + ["attacker", "attacker_params", "delta", "max_iter", "eps", "norm"]
 
