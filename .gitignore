@@ -112,3 +112,4 @@ demo/pics/*
 !notebooks/adversarial_patch/*.ipynb
 !notebooks/art_evaluations/*.ipynb
 !mynotebooks/*.ipynb
+!fangping_notes/*.ipynb
