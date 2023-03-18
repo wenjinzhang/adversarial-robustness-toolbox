@@ -9,11 +9,10 @@ with open("README.md", "r") as fh:
 install_requires = [
     "numpy>=1.18.0",
     "scipy>=1.4.1",
-    "scikit-learn>=0.22.2,<1.1.0",
+    "scikit-learn>=0.22.2,<1.2.0",
     "six",
     "setuptools",
     "tqdm",
-    "numba>=0.53.1",
 ]
 
 docs_require = [
@@ -25,7 +24,7 @@ docs_require = [
     "numpy>=1.18.0",
     "scipy>=1.4.1",
     "six>=1.13.0",
-    "scikit-learn>=0.22.2,<1.1.0",
+    "scikit-learn>=0.22.2,<1.2.0",
     "Pillow>=6.0.0",
 ]
 
@@ -93,6 +92,7 @@ setup(
             "cma",
             "librosa",
             "opencv-python",
+            "numba",
         ],
         "non_framework": [
             "matplotlib",
@@ -112,6 +112,7 @@ setup(
             "codecov",
             "requests",
             "sortedcontainers",
+            "numba",
         ],
     },
     classifiers=[
@@ -120,9 +121,9 @@ setup(
         "Intended Audience :: Education",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Software Development :: Libraries",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",

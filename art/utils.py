@@ -97,15 +97,23 @@ if TYPE_CHECKING:
     )
     from art.estimators.classification.tensorflow import TensorFlowClassifier, TensorFlowV2Classifier
     from art.estimators.classification.xgboost import XGBoostClassifier
+    from art.estimators.certification.deep_z import PytorchDeepZ
+    from art.estimators.certification.interval import PyTorchIBPClassifier
     from art.estimators.certification.derandomized_smoothing.derandomized_smoothing import BlockAblator, ColumnAblator
     from art.estimators.generation import TensorFlowGenerator
     from art.estimators.generation.tensorflow import TensorFlowV2Generator
     from art.estimators.object_detection.object_detector import ObjectDetector
     from art.estimators.object_detection.pytorch_object_detector import PyTorchObjectDetector
     from art.estimators.object_detection.pytorch_faster_rcnn import PyTorchFasterRCNN
+    from art.estimators.object_detection.pytorch_yolo import PyTorchYolo
     from art.estimators.object_detection.tensorflow_faster_rcnn import TensorFlowFasterRCNN
+    from art.estimators.object_detection.tensorflow_v2_faster_rcnn import TensorFlowV2FasterRCNN
     from art.estimators.pytorch import PyTorchEstimator
+    from art.estimators.keras import KerasEstimator
     from art.estimators.regression.scikitlearn import ScikitlearnRegressor
+    from art.estimators.regression.pytorch import PyTorchRegressor
+    from art.estimators.regression.keras import KerasRegressor
+    from art.estimators.regression.blackbox import BlackBoxRegressor
     from art.estimators.speech_recognition.pytorch_deep_speech import PyTorchDeepSpeech
     from art.estimators.speech_recognition.tensorflow_lingvo import TensorFlowLingvoASR
     from art.estimators.tensorflow import TensorFlowV2Estimator
@@ -189,13 +197,17 @@ if TYPE_CHECKING:
 
     GENERATOR_TYPE = Union[TensorFlowGenerator, TensorFlowV2Generator]  # pylint: disable=C0103
 
-    REGRESSOR_TYPE = Union[ScikitlearnRegressor, ScikitlearnDecisionTreeRegressor]  # pylint: disable=C0103
+    REGRESSOR_TYPE = Union[  # pylint: disable=C0103
+        ScikitlearnRegressor, ScikitlearnDecisionTreeRegressor, PyTorchRegressor, KerasRegressor, BlackBoxRegressor
+    ]
 
     OBJECT_DETECTOR_TYPE = Union[  # pylint: disable=C0103
         ObjectDetector,
         PyTorchObjectDetector,
         PyTorchFasterRCNN,
+        PyTorchYolo,
         TensorFlowFasterRCNN,
+        TensorFlowV2FasterRCNN,
     ]
 
     SPEECH_RECOGNIZER_TYPE = Union[  # pylint: disable=C0103
@@ -209,18 +221,46 @@ if TYPE_CHECKING:
         PyTorchEstimator,
         PyTorchObjectDetector,
         PyTorchFasterRCNN,
+        PyTorchYolo,
+        PyTorchRegressor,
+    ]
+
+    KERAS_ESTIMATOR_TYPE = Union[  # pylint: disable=C0103
+        KerasClassifier,
+        KerasEstimator,
+        KerasRegressor,
     ]
 
     TENSORFLOWV2_ESTIMATOR_TYPE = Union[  # pylint: disable=C0103
         TensorFlowV2Classifier,
         TensorFlowV2Estimator,
+        TensorFlowV2FasterRCNN,
     ]
 
     ESTIMATOR_TYPE = Union[  # pylint: disable=C0103
-        CLASSIFIER_TYPE, REGRESSOR_TYPE, OBJECT_DETECTOR_TYPE, SPEECH_RECOGNIZER_TYPE
+        CLASSIFIER_TYPE,
+        REGRESSOR_TYPE,
+        OBJECT_DETECTOR_TYPE,
+        SPEECH_RECOGNIZER_TYPE,
+        PYTORCH_ESTIMATOR_TYPE,
+        KERAS_ESTIMATOR_TYPE,
+        TENSORFLOWV2_ESTIMATOR_TYPE,
+    ]
+
+    CLONABLE = Union[  # pylint: disable=C0103
+        ScikitlearnClassifier,
+        PyTorchClassifier,
+        TensorFlowV2Classifier,
+        KerasEstimator,
+        PyTorchRegressor,
+        ScikitlearnRegressor,
+        XGBoostClassifier,
     ]
 
     ABLATOR_TYPE = Union[BlockAblator, ColumnAblator]  # pylint: disable=C0103
+
+    CERTIFIER_TYPE = Union[PytorchDeepZ]  # pylint: disable=C0103
+    IBP_CERTIFIER_TYPE = Union[PyTorchIBPClassifier]  # pylint: disable=C0103
 
 # --------------------------------------------------------------------------------------------------------- DEPRECATION
 
@@ -373,13 +413,13 @@ def projection_l1_1(values: np.ndarray, eps: Union[int, float, np.ndarray]) -> n
     mat = np.zeros((m, 2))
 
     #   if  a_sorted[i, n-1]  >= a_sorted[i, n-2] + eps,  then the projection is  [0,...,0,eps]
-    done = False
+    done = early_done = False
     active = np.array([1] * m)
     after_vec = np.zeros((m, n))
     proj = a_sorted.copy()
     j = n - 2
     while j >= 0:
-        mat[:, 0] = mat[:, 0] + a_sorted[:, j + 1]  # =  sum(a_sorted[: i] :  i = j + 1,...,n-1
+        mat[:, 0] += a_sorted[:, j + 1]  # =  sum(a_sorted[: i] :  i = j + 1,...,n-1
         mat[:, 1] = a_sorted[:, j] * (n - j - 1) + eps
         #  Find the max in each problem  max{ sum{a_sorted[:, i] : i=j+1,..,n-1} , a_sorted[:, j] * (n-j-1) + eps }
         row_maxes = np.max(mat, axis=1)
@@ -393,21 +433,29 @@ def projection_l1_1(values: np.ndarray, eps: Union[int, float, np.ndarray]) -> n
         #  has to be reduced is  delta
         delta = (mat[:, 0] - eps) / (n - j - 1)
         #    The vector of reductions
-        delta_vec = np.array([delta] * (n - j - 1))
-        delta_vec = np.transpose(delta_vec)
+        delta_vec = np.transpose(np.array([delta] * (n - j - 1)))
         #   The sub-vectors:  a_sorted[:, (j+1):]
         a_sub = a_sorted[:, (j + 1) :]
         #   After reduction by delta_vec
         a_after = a_sub - delta_vec
         after_vec[:, (j + 1) :] = a_after
-        proj = (act_multiplier * after_vec) + ((1 - act_multiplier) * proj)
+        proj += act_multiplier * (after_vec - proj)
         active = active * ind_set
         if sum(active) == 0:
-            done = True
+            done = early_done = True
             break
         j -= 1
+    if not early_done:
+        delta = (mat[:, 0] + a_sorted[:, 0] - eps) / n
+        ind_set = np.sign(np.maximum(delta, 0))
+        act_multiplier = ind_set * active
+        act_multiplier = np.transpose([np.transpose(act_multiplier)] * n)
+        delta_vec = np.transpose(np.array([delta] * n))
+        a_after = a_sorted - delta_vec
+        proj += act_multiplier * (a_after - proj)
+        done = True
     if not done:
-        proj = active * a_sorted + (1 - active) * proj
+        proj = active * (a_sorted - proj)
 
     for i in range(m):
         proj[i, :] = proj[i, a_argsort_inv[i, :]]
@@ -458,7 +506,7 @@ def projection_l1_2(values: np.ndarray, eps: Union[int, float, np.ndarray]) -> n
         mat0[:, 1] = np.min(mat, axis=1)
         min_t = np.max(mat0, axis=1)
         if np.max(min_t) < 1e-8:
-            break
+            continue
         row_sums = row_sums - a_var[:, j] * (n - j)
         a_var[:, (j + 1) :] = a_var[:, (j + 1) :] - np.matmul(min_t.reshape((m, 1)), np.ones((1, n - j - 1)))
         a_var[:, j] = a_var[:, j] - min_t
@@ -531,7 +579,8 @@ def random_sphere(
     norm: Union[int, float, str],
 ) -> np.ndarray:
     """
-    Generate randomly `m x n`-dimension points with radius `radius` and centered around 0.
+    Generate uniformly at random `m x n`-dimension points in the `norm`-norm ball with radius `radius` and centered
+    around 0.
 
     :param nb_points: Number of random data points.
     :param nb_dims: Dimensionality of the sphere.
@@ -545,13 +594,11 @@ def random_sphere(
                 "The parameter `radius` of type `np.ndarray` is not supported to use with norm 1."
             )
 
-        a_tmp = np.zeros(shape=(nb_points, nb_dims + 1))
-        a_tmp[:, -1] = np.sqrt(np.random.uniform(0, radius ** 2, nb_points))
-
-        for i in range(nb_points):
-            a_tmp[i, 1:-1] = np.sort(np.random.uniform(0, a_tmp[i, -1], nb_dims - 1))
-
-        res = (a_tmp[:, 1:] - a_tmp[:, :-1]) * np.random.choice([-1, 1], (nb_points, nb_dims))
+        var_u = np.random.uniform(size=(nb_points, nb_dims))
+        var_v = np.sort(var_u)
+        v_pre = np.concatenate((np.zeros((nb_points, 1)), var_v[:, : nb_dims - 1]), axis=-1)
+        x = var_v - v_pre
+        res = radius * x * np.random.choice([-1, 1], (nb_points, nb_dims))
 
     elif norm == 2:
         if isinstance(radius, np.ndarray):
@@ -570,6 +617,78 @@ def random_sphere(
 
         res = np.random.uniform(-radius, radius, (nb_points, nb_dims))
 
+    else:
+        raise NotImplementedError(f"Norm {norm} not supported")
+
+    return res
+
+
+def uniform_sample_from_sphere_or_ball(
+    nb_points: int,
+    nb_dims: int,
+    radius: Union[int, float, np.ndarray],
+    sample_space: str = "ball",
+    norm: Union[int, float, str] = 2,
+) -> np.ndarray:
+    """
+    Generate a sample of  <nb_points>  distributed independently and uniformly on the sphere (with respect to the given
+    norm) in dimension <nb_dims> with radius <radius> and centered at the origin.  Note that the sphere is the boundary
+    of the ball, i.e., every point on the sphere has the same distance to the origin.
+
+    :param nb_points: Number of random data points
+    :param nb_dims: Dimensionality of the sphere
+    :param radius: Radius of the sphere
+    :param sample_space: One of 'b', 's', 'sphere', 'ball'
+    :param norm: Current support: 1, 2, np.inf, "inf"
+    :return: The sampled points from the sphere (i.e., boundary of the ball)
+    """
+    assert sample_space in ["b", "s", "sphere", "ball"]
+
+    if norm == 1:
+        if sample_space in ["s", "sphere"]:
+            y = np.random.exponential(1, (nb_points, nb_dims))
+            sums = np.sum(y, axis=1)
+            scal = np.outer(sums, np.ones(nb_dims))
+            y = y / scal
+        else:
+            y = np.random.exponential(1, (nb_points, nb_dims + 1))
+            sums = np.sum(y, axis=1)
+            scal = np.outer(sums, np.ones(nb_dims + 1))
+            y = y / scal
+            y = y[:, :nb_dims]
+
+        y = y * np.random.choice([-1, 1], (nb_points, nb_dims))
+        if type(radius) in [int, float]:
+            res = y * radius
+        else:
+            radii = np.outer(radius, np.ones(nb_dims))
+            res = y * radii
+
+    elif norm == 2:
+        x = np.random.normal(0.0, 1.0, (nb_points, nb_dims))
+        scal = radius / np.sqrt(np.sum(x * x, axis=1))
+        scal = np.transpose(np.array(list(scal) * nb_dims).reshape((nb_dims, nb_points)))
+        res = x * scal
+        if sample_space in ["b", "ball"]:
+            rnd = np.random.rand(nb_points)
+            scal = np.float_power(rnd, 1 / nb_dims)
+            scal = np.outer(scal, np.ones(nb_dims))
+            res = res * scal
+
+    elif norm in [np.inf, "inf"]:
+        if sample_space in ["b", "ball"]:
+            x = np.random.uniform(-1.0, 1.0, (nb_points, nb_dims))
+        else:
+            x = np.random.uniform(0, 1.0, (nb_points, nb_dims))
+            rnd = np.random.random((nb_points, nb_dims))
+            maxes = np.max(rnd, axis=1)
+            maxes = np.outer(maxes, np.ones(nb_dims))
+            x = np.maximum((rnd >= maxes), x) * np.random.choice([-1, 1], (nb_points, nb_dims))
+        if type(radius) in [int, float]:
+            res = x * radius
+        else:
+            radii = np.outer(radius, np.ones(nb_dims))
+            res = x * radii
     else:
         raise NotImplementedError(f"Norm {norm} not supported")
 
@@ -636,7 +755,7 @@ def float_to_categorical(labels: np.ndarray, nb_classes: Optional[int] = None):
     """
     Convert an array of floating point labels to binary class matrix.
 
-    :param labels: An array of integer labels of shape `(nb_samples,)`
+    :param labels: An array of floating point labels of shape `(nb_samples,)`
     :param nb_classes: The number of classes (possible labels)
     :return: A binary matrix representation of `labels` in the shape `(nb_samples, nb_classes)`
     :rtype: `np.ndarray`
@@ -688,7 +807,7 @@ def check_and_transform_label_format(
             labels_return = np.expand_dims(labels_return, axis=1)
     elif len(labels.shape) == 2 and labels.shape[1] == 1:
         if nb_classes is None:
-            nb_classes = np.max(labels) + 1
+            nb_classes = int(np.max(labels) + 1)
         if nb_classes > 2:  # multi-class, index labels
             if return_one_hot:
                 labels_return = to_categorical(labels, nb_classes)
@@ -810,25 +929,19 @@ def get_feature_values(x: np.ndarray, single_index_feature: bool) -> list:
              For a multi-column feature, a list of lists, where each internal list represents a column and the values
              represent the possible values for that column (in increasing order).
     """
-    values = None
+    values = []
     if single_index_feature:
         values = np.unique(x).tolist()
     else:
         for column in x.T:
-            column_values = np.unique(column)
-            if values is None:
-                values = column_values
-            else:
-                values = np.vstack((values, column_values))
-        if values is not None:
-            values = values.tolist()
+            values.append(np.unique(column).tolist())
     return values
 
 
 def get_feature_index(feature: Union[int, slice]) -> Union[int, slice]:
     """
-    Returns a modified feature index: in case of a slice of size 1, returns the corresponding integer. Otherwise,
-    returns the same value (integer or slice) as passed.
+    Returns a modified feature index: in case of a slice of size 1, returns the corresponding integer. In case
+    of a slice with missing params, tries to fill them. Otherwise, returns the same value (integer or slice) as passed.
 
     :param feature: The index or slice representing a feature to attack
     :return: An integer representing a single column index or a slice representing a multi-column index
@@ -843,10 +956,24 @@ def get_feature_index(feature: Union[int, slice]) -> Union[int, slice]:
         start = 0
     if step is None:
         step = 1
-    if feature.stop is not None and ((stop - start) // step) == 1:
+    if stop is not None and ((stop - start) // step) == 1:
         return start
 
-    return feature
+    return slice(start, stop, step)
+
+
+def remove_attacked_feature(attack_feature: Union[int, slice], non_numerical_features: Optional[List[int]]):
+    """
+    Removes the attacked feature from the list of non-numeric features to encode.
+
+    :param attack_feature: The index or slice representing a feature to attack
+    :param non_numerical_features: a list of feature indexes that require encoding in order to feed into an ML model
+                                    (i.e., strings)
+    :return:
+    """
+    if non_numerical_features is not None and isinstance(attack_feature, int):
+        if attack_feature in non_numerical_features:
+            non_numerical_features.remove(attack_feature)
 
 
 def compute_success_array(
@@ -990,8 +1117,6 @@ def load_cifar10(
 
     fpath = os.path.join(path, "test_batch")
     x_test, y_test = load_batch(fpath)
-    y_train = np.reshape(y_train, (len(y_train), 1))
-    y_test = np.reshape(y_test, (len(y_test), 1))
 
     # Set channels last
     x_train = x_train.transpose((0, 2, 3, 1))
@@ -1198,7 +1323,10 @@ def load_nursery(
         "nursery.data",
         path=config.ART_DATA_PATH,
         extract=False,
-        url="https://archive.ics.uci.edu/ml/machine-learning-databases/nursery/nursery.data",
+        url=[
+            "https://archive.ics.uci.edu/ml/machine-learning-databases/nursery/nursery.data",
+            "https://www.dropbox.com/s/l24hwvkuueor6lp/nursery.data?dl=1",
+        ],
     )
 
     # load data
@@ -1340,7 +1468,9 @@ def _extract(full_path: str, path: str) -> bool:
     return True
 
 
-def get_file(filename: str, url: str, path: Optional[str] = None, extract: bool = False, verbose: bool = False) -> str:
+def get_file(
+    filename: str, url: Union[str, List[str]], path: Optional[str] = None, extract: bool = False, verbose: bool = False
+) -> str:
     """
     Downloads a file from a URL if it not already in the cache. The file at indicated by `url` is downloaded to the
     path `path` (default is ~/.art/data). and given the name `filename`. Files in tar, tar.gz, tar.bz, and zip formats
@@ -1353,6 +1483,11 @@ def get_file(filename: str, url: str, path: Optional[str] = None, extract: bool 
     :param verbose: If true, print download progress bar.
     :return: Path to the downloaded file.
     """
+    if isinstance(url, str):
+        url_list = [url]
+    else:
+        url_list = url
+
     if path is None:
         path_ = os.path.expanduser(config.ART_DATA_PATH)
     else:
@@ -1376,40 +1511,47 @@ def get_file(filename: str, url: str, path: Optional[str] = None, extract: bool 
         logger.info("Downloading data from %s", url)
         error_msg = "URL fetch failure on {}: {} -- {}"
         try:
-            try:
-                from six.moves.urllib.error import HTTPError, URLError
-                from six.moves.urllib.request import urlretrieve
+            for url_i in url_list:
+                try:
+                    from six.moves.urllib.error import HTTPError, URLError
+                    from six.moves.urllib.request import urlretrieve
 
-                # The following two lines should prevent occasionally occurring
-                # [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed (_ssl.c:847)
-                import ssl
+                    # The following two lines should prevent occasionally occurring
+                    # [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed (_ssl.c:847)
+                    import ssl
 
-                ssl._create_default_https_context = ssl._create_unverified_context  # pylint: disable=W0212
+                    ssl._create_default_https_context = ssl._create_unverified_context  # pylint: disable=W0212
 
-                if verbose:
-                    with tqdm() as t_bar:
-                        last_block = [0]
+                    if verbose:
+                        with tqdm() as t_bar:
+                            # pylint: disable=W0640
+                            last_block = [0]
 
-                        def progress_bar(blocks: int = 1, block_size: int = 1, total_size: Optional[int] = None):
-                            """
-                            :param blocks: Number of blocks transferred so far [default: 1].
-                            :param block_size: Size of each block (in tqdm units) [default: 1].
-                            :param total_size: Total size (in tqdm units). If [default: None] or -1, remains unchanged.
-                            """
-                            if total_size not in (None, -1):
-                                t_bar.total = total_size
-                            displayed = t_bar.update((blocks - last_block[0]) * block_size)
-                            last_block[0] = blocks
-                            return displayed
+                            def progress_bar(blocks: int = 1, block_size: int = 1, total_size: Optional[int] = None):
+                                """
+                                :param blocks: Number of blocks transferred so far [default: 1].
+                                :param block_size: Size of each block (in tqdm units) [default: 1].
+                                :param total_size: Total size (in tqdm units). If [default: None] or -1, remains
+                                                   unchanged.
+                                """
+                                if total_size not in (None, -1):
+                                    t_bar.total = total_size
+                                displayed = t_bar.update((blocks - last_block[0]) * block_size)
+                                last_block[0] = blocks
+                                return displayed
 
-                        urlretrieve(url, full_path, reporthook=progress_bar)
-                else:
-                    urlretrieve(url, full_path)
+                            urlretrieve(url_i, full_path, reporthook=progress_bar)
+                    else:
+                        urlretrieve(url_i, full_path)
 
-            except HTTPError as exception:  # pragma: no cover
-                raise Exception(error_msg.format(url, exception.code, exception.msg)) from HTTPError  # type: ignore
-            except URLError as exception:  # pragma: no cover
-                raise Exception(error_msg.format(url, exception.errno, exception.reason)) from HTTPError  # type: ignore
+                except HTTPError as exception:  # pragma: no cover
+                    raise Exception(
+                        error_msg.format(url_i, exception.code, exception.msg)  # type: ignore
+                    ) from HTTPError  # type: ignore
+                except URLError as exception:  # pragma: no cover
+                    raise Exception(
+                        error_msg.format(url_i, exception.errno, exception.reason)  # type: ignore
+                    ) from HTTPError  # type: ignore
         except (Exception, KeyboardInterrupt):  # pragma: no cover
             if os.path.exists(full_path):
                 os.remove(full_path)
@@ -1559,6 +1701,24 @@ def is_probability(vector: np.ndarray) -> bool:
     is_sum_1 = math.isclose(np.sum(vector), 1.0, rel_tol=1e-03)
     is_smaller_1 = np.amax(vector) <= 1.0
     is_larger_0 = np.amin(vector) >= 0.0
+
+    return is_sum_1 and is_smaller_1 and is_larger_0
+
+
+def is_probability_array(array: np.ndarray) -> bool:
+    """
+    Check if a multi-dimensional array is an array of probabilities.
+
+    :param vector: A numpy array.
+    :return: True if it is an array of probabilities.
+    """
+    if len(array.shape) == 1:
+        return is_probability(array)
+    sum_array = np.sum(array, axis=1)
+    ones = np.ones_like(sum_array)
+    is_sum_1 = np.allclose(sum_array, ones, rtol=1e-03)
+    is_smaller_1 = np.amax(array) <= 1.0
+    is_larger_0 = np.amin(array) >= 0.0
 
     return is_sum_1 and is_smaller_1 and is_larger_0
 

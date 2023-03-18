@@ -1,6 +1,9 @@
 """
 Module providing evasion attacks under a common interface.
 """
+# pylint: disable=C0413
+import importlib
+
 from art.attacks.evasion.adversarial_patch.adversarial_patch import AdversarialPatch
 from art.attacks.evasion.adversarial_patch.adversarial_patch_numpy import AdversarialPatchNumpy
 from art.attacks.evasion.adversarial_patch.adversarial_patch_tensorflow import AdversarialPatchTensorFlowV2
@@ -9,7 +12,11 @@ from art.attacks.evasion.adversarial_texture.adversarial_texture_pytorch import 
 from art.attacks.evasion.adversarial_asr import CarliniWagnerASR
 from art.attacks.evasion.auto_attack import AutoAttack
 from art.attacks.evasion.auto_projected_gradient_descent import AutoProjectedGradientDescent
-from art.attacks.evasion.brendel_bethge import BrendelBethgeAttack
+from art.attacks.evasion.auto_conjugate_gradient import AutoConjugateGradient
+
+if importlib.util.find_spec("numba") is not None:
+    from art.attacks.evasion.brendel_bethge import BrendelBethgeAttack
+
 from art.attacks.evasion.boundary import BoundaryAttack
 from art.attacks.evasion.carlini import CarliniL2Method, CarliniLInfMethod, CarliniL0Method
 from art.attacks.evasion.decision_tree_attack import DecisionTreeAttack
@@ -23,6 +30,8 @@ from art.attacks.evasion.feature_adversaries.feature_adversaries_numpy import Fe
 from art.attacks.evasion.feature_adversaries.feature_adversaries_pytorch import FeatureAdversariesPyTorch
 from art.attacks.evasion.feature_adversaries.feature_adversaries_tensorflow import FeatureAdversariesTensorFlowV2
 from art.attacks.evasion.geometric_decision_based_attack import GeoDA
+from art.attacks.evasion.graphite.graphite_blackbox import GRAPHITEBlackbox
+from art.attacks.evasion.graphite.graphite_whitebox_pytorch import GRAPHITEWhiteboxPyTorch
 from art.attacks.evasion.hclu import HighConfidenceLowUncertainty
 from art.attacks.evasion.hop_skip_jump import HopSkipJump
 from art.attacks.evasion.imperceptible_asr.imperceptible_asr import ImperceptibleASR

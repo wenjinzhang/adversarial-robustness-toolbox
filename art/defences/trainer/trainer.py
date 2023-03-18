@@ -41,9 +41,7 @@ class Trainer(abc.ABC):
         self._classifier = classifier
 
     @abc.abstractmethod
-    def fit(  # lgtm [py/inheritance/incorrect-overridden-signature]
-        self, x: np.ndarray, y: np.ndarray, **kwargs
-    ) -> None:
+    def fit(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
         """
         Train the model.
 
@@ -52,6 +50,15 @@ class Trainer(abc.ABC):
         :param kwargs: Other parameters.
         """
         raise NotImplementedError
+
+    @property
+    def classifier(self) -> "CLASSIFIER_LOSS_GRADIENTS_TYPE":
+        """
+        Access function to get the classifier.
+
+        :return: The classifier.
+        """
+        return self._classifier
 
     def get_classifier(self) -> "CLASSIFIER_LOSS_GRADIENTS_TYPE":
         """

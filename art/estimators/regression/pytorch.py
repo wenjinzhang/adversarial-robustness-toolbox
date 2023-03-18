@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-call-to-init]
+class PyTorchRegressor(RegressorMixin, PyTorchEstimator):
     """
     This class implements a regressor with the PyTorch framework.
     """
@@ -106,7 +106,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                be divided by the second one.
         :param device_type: Type of device on which the regressor is run, either `gpu` or `cpu`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         super().__init__(
             model=model,
@@ -245,7 +245,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         :param training_mode: `True` for model set to training mode and `'False` for model set to evaluation mode.
         :return: Array of predictions of shape `(nb_inputs, nb_classes)`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         # Set model mode
         self._model.train(mode=training_mode)
@@ -269,7 +269,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
             output = model_outputs[-1]
             output = output.detach().cpu().numpy().astype(np.float32)
             if len(output.shape) == 1:
-                output = np.expand_dims(output.detach().cpu().numpy(), axis=1).astype(np.float32)
+                output = np.expand_dims(output, axis=1).astype(np.float32)
 
             results_list.append(output)
 
@@ -323,7 +323,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         :param kwargs: Dictionary of framework-specific arguments. This parameter is not currently supported for PyTorch
                and providing it takes no effect.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         # Set model mode
         self._model.train(mode=training_mode)
@@ -359,7 +359,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                         -1,
                     ),
                     o_batch,
-                )  # lgtm [py/call-to-non-callable]
+                )
 
                 # Do training
                 if self._use_amp:  # pragma: no cover
@@ -382,7 +382,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         :param kwargs: Dictionary of framework-specific arguments. This parameter is not currently supported for PyTorch
                and providing it takes no effect.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
         from art.data_generators import PyTorchDataGenerator
 
         # Put the model in the training mode
@@ -447,7 +447,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
             # Fit a generic data generator through the API
             super().fit_generator(generator, nb_epochs=nb_epochs)
 
-    def clone_for_refitting(self) -> "PyTorchRegressor":  # lgtm [py/inheritance/incorrect-overridden-signature]
+    def clone_for_refitting(self) -> "PyTorchRegressor":
         """
         Create a copy of the regressor that can be refit from scratch. Will inherit same architecture, optimizer and
         initialization as cloned model, but without weights.
@@ -495,7 +495,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                    'sum': the output will be summed.
         :return: Array of losses of the same shape as `x`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         self._model.eval()
 
@@ -529,6 +529,45 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         self._loss.reduction = prev_reduction
 
         if isinstance(x, torch.Tensor):
+            return loss
+
+        return loss.detach().cpu().numpy()
+
+    def compute_loss_from_predictions(  # type: ignore # pylint: disable=W0221
+        self, pred: np.ndarray, y: np.ndarray, reduction: str = "none", **kwargs
+    ) -> Union[np.ndarray, "torch.Tensor"]:
+        """
+        Compute the loss of the regressor for predictions `pred`. Does not apply preprocessing to the given `y`.
+
+        :param pred: Model predictions.
+        :param y: Target values.
+        :param reduction: Specifies the reduction to apply to the output: 'none' | 'mean' | 'sum'.
+                   'none': no reduction will be applied
+                   'mean': the sum of the output will be divided by the number of elements in the output,
+                   'sum': the output will be summed.
+        :return: Loss values.
+        """
+        import torch
+
+        if isinstance(y, torch.Tensor):
+            labels_t = y
+        else:
+            # Convert the labels to Tensors
+            labels_t = torch.from_numpy(y).to(self._device)
+
+        prev_reduction = self._loss.reduction
+
+        # Return individual loss values
+        self._loss.reduction = reduction
+        loss = self._loss(
+            pred[-1].reshape(
+                -1,
+            ),
+            labels_t,
+        )
+        self._loss.reduction = prev_reduction
+
+        if isinstance(y, torch.Tensor):
             return loss
 
         return loss.detach().cpu().numpy()
@@ -574,7 +613,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                               `training_mode=False.`
         :return: Array of gradients of the same shape as `x`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         self._model.train(mode=training_mode)
 
@@ -626,7 +665,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                 -1,
             ),
             labels_t,
-        )  # lgtm [py/call-to-non-callable]
+        )
 
         # Clean gradients
         self._model.zero_grad()
@@ -641,10 +680,13 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         else:
             loss.backward()
 
-        if isinstance(x, torch.Tensor):
-            grads = x_grad.grad
+        if x_grad.grad is not None:
+            if isinstance(x, torch.Tensor):
+                grads = x_grad.grad
+            else:
+                grads = x_grad.grad.cpu().numpy().copy()
         else:
-            grads = x_grad.grad.cpu().numpy().copy()  # type: ignore
+            raise ValueError("Gradient tensor in PyTorch model is `None`.")
 
         if not self.all_framework_preprocessing:
             grads = self._apply_preprocessing_gradient(x, grads)
@@ -671,7 +713,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         :param layer_name: Name of the layer from which activation needs to be extracted/activation layer.
         :return: Array of gradients of the same shape as `x`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         self._model.train(mode=training_mode)
         self._model.eval()
@@ -748,7 +790,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         :param framework: If true, return the intermediate tensor representation of the activation.
         :return: The output of `layer`, where the first dimension is the batch size corresponding to `x`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         self._model.eval()
 
@@ -824,7 +866,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
         :param path: Path of the folder where to store the model. If no path is specified, the model will be stored in
                      the default data location of the library `ART_DATA_PATH`.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         if path is None:
             full_path = os.path.join(config.ART_DATA_PATH, filename)
@@ -869,7 +911,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
 
         :param state: State dictionary with instance parameters to restore.
         """
-        import torch  # lgtm [py/repeated-import]
+        import torch
 
         # Recover model
         self.__dict__.update(state)
@@ -903,7 +945,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
     def _make_model_wrapper(self, model: "torch.nn.Module") -> "torch.nn.Module":
         # Try to import PyTorch and create an internal class that acts like a model wrapper extending torch.nn.Module
         try:
-            import torch  # lgtm [py/repeated-import]
+            import torch
 
             # Define model wrapping class only if not defined before
             if not hasattr(self, "_model_wrapper"):
@@ -913,7 +955,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                     This is a wrapper for the input model.
                     """
 
-                    import torch  # lgtm [py/repeated-import]
+                    import torch
 
                     def __init__(self, model: torch.nn.Module):
                         """
@@ -967,7 +1009,7 @@ class PyTorchRegressor(RegressorMixin, PyTorchEstimator):  # lgtm [py/missing-ca
                                      layers if the input model is of type `nn.Sequential`, otherwise, it will only
                                      return the logit layer.
                         """
-                        import torch  # lgtm [py/repeated-import]
+                        import torch
 
                         result = []
                         if isinstance(self._model, torch.nn.Module):

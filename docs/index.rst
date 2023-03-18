@@ -67,7 +67,6 @@ Supported Machine Learning Libraries
    modules/attacks/poisoning
    modules/defences
    modules/defences/detector_evasion
-   modules/defences/detector_evasion_subsetscanning
    modules/defences/detector_poisoning
    modules/defences/postprocessor
    modules/defences/preprocessor
@@ -77,6 +76,7 @@ Supported Machine Learning Libraries
    modules/estimators
    modules/estimators/certification
    modules/estimators/certification_deep_z
+   modules/estimators/certification_interval
    modules/estimators/certification_randomized_smoothing
    modules/estimators/classification
    modules/estimators/classification_scikitlearn

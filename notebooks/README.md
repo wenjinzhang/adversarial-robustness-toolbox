@@ -60,7 +60,11 @@ show how to use ART to create feature adversaries ([Sabour et al., 2016](https:/
 [attack_adversarial_patch.ipynb](adversarial_patch/attack_adversarial_patch.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/adversarial_patch/attack_adversarial_patch.ipynb)]
 shows how to use ART to create real-world adversarial patches that fool real-world object detection and classification 
 models.
-[attack_adversarial_patch_TensorFlowV2.ipynb](adversarial_patch/attack_adversarial_patch.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/adversarial_patch/attack_adversarial_patch_TensorFlowV2.ipynb)]  TensorFlow v2 specific attack implementation.
+[attack_adversarial_patch_TensorFlowV2.ipynb](adversarial_patch/attack_adversarial_patch.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/adversarial_patch/attack_adversarial_patch_TensorFlowV2.ipynb)]  TensorFlow v2 specific attack implementation. 
+[attack_adversarial_patch_pytorch_yolo.ipynb](adversarial_patch/attack_adversarial_patch_pytorch_yolo.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/adversarial_patch/attack_adversarial_patch_pytorch_yolo.ipynb)] YOLO v3 and v5 specific attack.
+
+[attack_adversarial_patch_faster_rcnn.ipynb](adversarial_patch/attack_adversarial_patch_faster_rcnn.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/adversarial_patch/attack_adversarial_patch_faster_rcnn.ipynb)]
+shows how to set up a TFv2 Faster R-CNN object detector with ART and create an adversarial patch attack that fools the detector.
 
 <p align="center">
   <img src="../utils/data/images/adversarial_patch.png?raw=true" width="200" title="adversarial_patch">
@@ -99,6 +103,12 @@ demonstrates a MembershipInferenceBlackBox membership inference attack using sha
 
 [label_only_membership_inference.ipynb](label_only_membership_inference.ipynb) [[on nbviewer](https://nbviewer.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/label_only_membership_inference.ipynb)]
 demonstrates a LabelOnlyDecisionBoundary membership inference attack on a PyTorch classifier for the MNIST dataset.
+
+## Metrics
+
+[privacy_metric.ipynb](privacy_metric.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/privacy_metric.ipynb)] 
+demonstrates how to apply both the PDTP and the SHAPr privacy metrics to random forest and decision tree classifiers
+trained on the nursery dataset.
 
 ## Classifiers
 
@@ -225,6 +235,9 @@ demonstrates the generation and detection of backdoors in neural networks via Ac
 [poisoning_defense_deep_partition_aggregation.ipynb](poisoning_defense_deep_partition_aggregation.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/poisoning_defense_deep_partition_aggregation.ipynb)]
 demonstrates a defense against poisoning attacks via partitioning the data into disjoint subsets and training an ensemble model.
 
+[poisoning_defense_dp_instahide.ipynb](poisoning_defense_dp_instahide.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/poisoning_defense_dp_instahide.ipynb)]
+demonstrates a defense against poisoning attacks using the DP-InstaHide training method which uses data augmentation and additive noise.
+
 [poisoning_defense_neural_cleanse.ipynb](poisoning_defense_neural_cleanse.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/poisoning_defense_neural_cleanse.ipynb)]
 demonstrates a defense against poisoning attacks that generation the suspected backdoor and applies runtime mitigation methods on the classifier.
 
@@ -245,6 +258,9 @@ demonstrates working Sleeper Agent poisoning attack implemented in PyTorch Frame
 which employs gradient matching, data selection, and target model re-training during the crafting process. Sleeper
 Agent is the first hidden trigger backdoor attack to be effective against neural networks trained from scratch.
 
+[poisoning_attack_bad_det.ipynb](poisoning_attack_bad_det.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/poisoning_attack_bad_det.ipynb)]
+demonstrates using the BadDet poisoning attacks to insert backdoors and create poisoned samples for object detector models. This is a dirty label attack where a trigger is inserted into a bounding box and the classification labels are changed accordingly.
+
 ## Certification and Verification
 
 [output_randomized_smoothing_mnist.ipynb](output_randomized_smoothing_mnist.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/output_randomized_smoothing_mnist.ipynb)]
@@ -258,7 +274,22 @@ demonstrates the verification of adversarial robustness in decision tree ensembl
 demonstrates using DeepZ to compute certified robustness for neural networks.
 
 <p align="center">
-  <img src="../utils/data/images/zonotope_picture.png?raw=true" width="200" title="poisoning">
+  <img src="../utils/data/images/zonotope_picture.png?raw=true" width="200" title="deepz">
+</p>
+
+## Certified Training
+
+[certified_adversarial_training.ipynb](certified_adversarial_training.ipynb) [[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/certified_adversarial_training.ipynb)]
+Demonstrates training a neural network for certified robustness using bound propagation techniques.
+
+<p align="center">
+  <img src="../utils/data/images/cert_training.png?raw=true" width="200" title="certified training">
+</p>
+
+[certification_interval_domain.ipynb](certification_interval_domain.ipynb)[[on nbviewer](https://nbviewer.jupyter.org/github/Trusted-AI/adversarial-robustness-toolbox/blob/main/notebooks/certification_interval_domain.ipynb)]
+demonstrates using interval bound propagation for certification of neural network robustness.
+<p align="center">
+  <img src="../utils/data/images/IBP_certification.png?raw=true" width="200" title="IBP certification">
 </p>
 
 ## MNIST
